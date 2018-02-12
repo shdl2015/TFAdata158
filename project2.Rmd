@@ -44,21 +44,23 @@ plot(fitted(test_lm), test_res, ylab="Residuals", xlab="Total Hours of Teacher P
 abline(0,0)
 ```
 
-The scatter plot of Difference in Math Test Scores vs. Total Hours of Teacher Professional Development implies that we cannot fit a linear regression model on these two variables, because the explanatory variable is not continuous. 
+The scatter plot of Difference in Math Test Scores vs. Total Hours of Teacher Professional Development implies that we cannot fit a linear regression model on these two variables, because the explanatory variable is not continuous. In addition, each teacher, no matter how many hours of professional development, will have their own distribution of student math scores. This explains why there were mutiple test scores for the same amount of teacher training.  
 
 ##### Confidence Interval
 ```{r}
-newGPA <- data.frame(SATSum=120)
-crit_val <- qt(.975, glance(satGPA_lm1)$df.resid)
-GPA_pred <- augment(satGPA_lm1, newdata=newGPA, type.predict = "response")
-.se.pred <- sqrt(glance(satGPA_lm1)$sigma^2 + GPA_pred$.se.fit)
-GPA_pred <- GPA_pred %>%
+newtest <- data.frame(atotal=0)
+crit_val <- qt(.975, glance(test_lm)$df.resid)
+test_pred <- augment(test_lm, newdata=newtest, type.predict = "response")
+.se.pred <- sqrt(glance(test_lm)$sigma^2 + test_pred$.se.fit)
+test_pred <- test_pred %>%
 mutate(lower_PI = .fitted - crit_val * .se.pred,
 upper_PI = .fitted + crit_val * .se.pred,
 lower_CI = .fitted - crit_val * .se.fit,
 upper_CI = .fitted + crit_val * .se.fit)
-GPA_pred
+test_pred
 ```
+
+There are multiple test scores observed when a teacher has had zero hours of professional development, so we were unable to construct a confidence interval. 
 
 ##### The Fit of Our Model
 ```{r}
@@ -67,3 +69,5 @@ summary(test_lm)
 ```
 
 ##### Conclusion
+
+Due to the nature of our variables, a linear regression does not fit. 
