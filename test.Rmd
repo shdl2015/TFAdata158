@@ -1,30 +1,69 @@
 ---
-title: "TFA Data"
-author: "Sophia Hui"
-date: "February 9, 2018"
+title: "Math 158 Project: Teach for America Data Assignment 2"
+author: "Sophia Hui and Allison Kirkegarrd"
+date: "February 10, 2018"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, fig.height=3, fig.width=5, fig.align = "center")
+require(dplyr)
+require(ggplot2)
+require(infer)
+require(skimr)
+require(broom)
+require(haven)
+TFAdata <- read_dta(("C:\\Users\\SophiaHui\\Downloads\\my_TFAdata.dta"))
+options(digits=3)
+```
+##### Introduction
+
+Our data comes from an evaluation of Teach for America conducted by Mathematica Policy Research in 2004, which was designed as a year-long randomized controlled trial including 17 elementary schools from six regions across the United States. It comprises student pre- and posttest scores in math and reading, student survey responses, and teacher survey responses. We chose to have students be our observational units, and merged their teachers' data with their own so that our model of student test performance can include both student and teacher characteristics.
+
+##### Hypothesis Testing
+
+We are introducing a new variable: the difference between pretest and posttest scores in math; the variable will be called 'diff'. We will be testing the linear relationship between 'diff' and the teacher's years of experience. Our explanatory variable will be total hours the teacher spent on various professional development (e.g., in-depth study of content, methods of teaching, applications of technology), and our response variable will be $X$ = posttest score - pretest score in math. The linear regression model we will be using is $$ Y_i = \beta_0 + \beta_1 X_i + \epsilon_i$$. Our hypothesis is:
+
+$$ H_0: \beta_1 = 0$$
+$$ H_a: \beta_1\neq 0$$
+
+##### Checking Assumptions for Linear Regression
+
+```{r, eval = FALSE}
+TFAdata <- TFAdata %>% mutate(diff = ss_m-press_m)
+TFAdata <- TFAdata %>% mutate (atotal = a17a_ths+a17b_ths+a17c_ths+a17d_ths+a17e_ths+a17f_ths+a17g_ths)
+
+ggplot(TFAdata, aes(x=diff, y=atotal)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=FALSE)
+
+test_lm <- lm(atotal ~ diff, data=TFAdata)
+tidy(test_lm)
+test_res <- resid(test_lm)
+plot(fitted(test_lm), test_res, ylab="Residuals", xlab="Total Hours of Teacher Professional Development", main="Teacher Training and Difference in Math Test Scores Residual Plot")
+abline(0,0)
 ```
 
-## R Markdown
+The scatter plot of Difference in Math Test Scores vs. Total Hours of Teacher Professional Development implies that we cannot fit a linear regression model on these two variables, because the explanatory variable is not continuous. 
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+##### Confidence Interval
+```{r}
+newGPA <- data.frame(SATSum=120)
+crit_val <- qt(.975, glance(satGPA_lm1)$df.resid)
+GPA_pred <- augment(satGPA_lm1, newdata=newGPA, type.predict = "response")
+.se.pred <- sqrt(glance(satGPA_lm1)$sigma^2 + GPA_pred$.se.fit)
+GPA_pred <- GPA_pred %>%
+mutate(lower_PI = .fitted - crit_val * .se.pred,
+upper_PI = .fitted + crit_val * .se.pred,
+lower_CI = .fitted - crit_val * .se.fit,
+upper_CI = .fitted + crit_val * .se.fit)
+GPA_pred
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+##### The Fit of Our Model
+```{r}
+anova(test_lm)
+summary(test_lm)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+##### Conclusion
