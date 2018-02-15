@@ -1,6 +1,6 @@
 ---
 title: "Math 158 Project: Teach for America Data Assignment 2"
-author: "Sophia Hui and Allison Kirkegarrd"
+author: "Sophia Hui and Allison Kirkegaard"
 date: "February 10, 2018"
 output: pdf_document
 ---
@@ -13,7 +13,8 @@ require(infer)
 require(skimr)
 require(broom)
 require(haven)
-TFAdata <- read_dta(("C:\\Users\\SophiaHui\\Downloads\\my_TFAdata.dta"))
+require(readr)
+TFAdata <- read_csv("my_TFAdata.csv")
 options(digits=3)
 ```
 ##### Introduction
@@ -29,26 +30,29 @@ $$ H_a: \beta_1\neq 0$$
 
 ##### Checking Assumptions for Linear Regression
 
-```{r, eval = FALSE}
+```{r}
 TFAdata <- TFAdata %>% mutate(diff = ss_m-press_m)
-TFAdata <- TFAdata %>% mutate (atotal = a17a_ths+a17b_ths+a17c_ths+a17d_ths+a17e_ths+a17f_ths+a17g_ths)
 
-ggplot(TFAdata, aes(x=diff, y=atotal)) +
+ggplot(TFAdata, aes(x=a1_a, y=diff)) +
   geom_point() + 
   geom_smooth(method="lm", se=FALSE)
 
-test_lm <- lm(atotal ~ diff, data=TFAdata)
+test_lm <- lm(diff ~ a1_a, data=TFAdata)
 tidy(test_lm)
 test_res <- resid(test_lm)
-plot(fitted(test_lm), test_res, ylab="Residuals", xlab="Total Hours of Teacher Professional Development", main="Teacher Training and Difference in Math Test Scores Residual Plot")
+plot(fitted(test_lm), test_res, ylab="Residuals", xlab="Total Years of Teaching Experience", main="Teacher Experience and Difference in Math Test Scores Residual Plot")
 abline(0,0)
 ```
 
-The scatter plot of Difference in Math Test Scores vs. Total Hours of Teacher Professional Development implies that we cannot fit a linear regression model on these two variables, because the explanatory variable is not continuous. In addition, each teacher, no matter how many hours of professional development, will have their own distribution of student math scores. This explains why there were mutiple test scores for the same amount of teacher training.  
+Note that 100 observations were removed, because teachers did not provide how many years of experience they had in teaching, including the current school year. 
+
+Because our explanatory variable is discrete, it is difficult to see a linear relationship between our X and Y. However, there is no curvilinear relationship present either, so we can assume that the relationship is linear with constant variability. There is independence among the residuals, and they are normally distributed. However, there is no constant variance, because at high number of years of experience, the residuals are larger. 
+
+Our linear model is $$\hat{Y}=12.235 + -0.193X$$, with a p-value of 8.20e-04. Thus, we can reject $H_0$. 
 
 ##### Confidence Interval
 ```{r}
-newtest <- data.frame(atotal=0)
+newtest <- data.frame(a1_a=1)
 crit_val <- qt(.975, glance(test_lm)$df.resid)
 test_pred <- augment(test_lm, newdata=newtest, type.predict = "response")
 .se.pred <- sqrt(glance(test_lm)$sigma^2 + test_pred$.se.fit)
@@ -59,15 +63,15 @@ lower_CI = .fitted - crit_val * .se.fit,
 upper_CI = .fitted + crit_val * .se.fit)
 test_pred
 ```
+By constructing a 95% prediction interval, we are 95% confident that the difference in pre- and post-test math scores will be in the interval (-15.6, 39.7) for a student who has a teacher with no prior experience ($X_h$ = 1). We also constructed a 95% confidence interval, which tells us that if we were to repeatedly samples, then 95% of our confidence intervals will capture the true mean score difference for students with teachers with 1 year of experience (including the current school year). 
 
-There are multiple test scores observed when a teacher has had zero hours of professional development, so we were unable to construct a confidence interval. 
-
-##### The Fit of Our Model
+##### Fit of Our Model
+A concern about our residuals plot is the non-constant variance. When we look at the residuals around 12 years of teaching experience, their magnitudes are larger than the other residuals in the plot. 
 ```{r}
-anova(test_lm)
 summary(test_lm)
 ```
+Additionally, our $R^2$ value is very low. Only 0.924% of the variability of the response data is explained by our model. Therefore, a linear regression may not be the best model for this data. 
 
 ##### Conclusion
+Initially, we were concerned by the scatterplot, because our explanatory variable only had discrete values, which yielded in a plot that did not look linear. However, we were able to reject our null hypothesis and conclude that there was a negative relationship between the total number of years of teaching experience and the difference in math pre- and post-test scores. This surprised us, because typically, more experienced teachers have better success in the classroom. Yet, because we were unable to meet the technical condition of having constant variance and because of our low $R^2$ value, we cannot confidently conclude anything about the relationship. 
 
-Due to the nature of our variables, a linear regression does not fit. 
