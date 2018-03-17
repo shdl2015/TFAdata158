@@ -1,0 +1,23 @@
+---
+title: "Math 158 Project: Teach for America Data Assignment 3"
+author: "Sophia Hui and Allison Kirkegaard"
+date: "March 16, 2018"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, fig.height=3, fig.width=5, fig.align = "center")
+require(dplyr)
+require(ggplot2)
+require(infer)
+require(skimr)
+require(broom)
+require(haven)
+require(readr)
+TFAdata <- read_csv("my_TFAdata.csv")
+options(digits=3)
+```
+##### Introduction
+
+Our data comes from an evaluation of Teach for America conducted by Mathematica Policy Research in 2004, which was designed as a year-long randomized controlled trial including 17 elementary schools from six regions across the United States. It comprises student pre- and posttest scores in math and reading, student survey responses, and teacher survey responses. We chose to have students be our observational units, and merged their teachers' data with their own so that our model of student test performance can include both student and teacher characteristics.
+
