@@ -1,0 +1,54 @@
+---
+title: "Math 158 Project: Assignment 3"
+author: "Sophia Hui and Allison Kirkegaard"
+date: "March 19, 2018"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, fig.height=3, fig.width=5, fig.align = "center")
+require(dplyr)
+require(ggplot2)
+require(infer)
+require(skimr)
+require(broom)
+require(haven)
+require(readr)
+TFAdata <- read_csv("my_TFAdata.csv")
+options(digits=3)
+```
+##### Introduction
+
+Our data comes from an evaluation of Teach for America conducted by Mathematica Policy Research in 2004, which was designed as a year-long randomized controlled trial including 17 elementary schools from six regions across the United States. It comprises student pre- and posttest scores in math and reading, student survey responses, and teacher survey responses. We chose to have students be our observational units, and merged their teachers' data with their own so that our model of student test performance can include both student and teacher characteristics.
+
+Students were tested in math and reading at the beginning and end of the school year, and We are specifically interested in predicting the difference in math test scores. 
+
+Removing variables
+```{r}
+myvars <- names(TFAdata) %in% c("suspensions", "suspdays", "a17g_ths", "a17a_ths", "a17b_ths", "a17c_ths", "a17d_ths", "a17e_ths", "a5_mmfs1", "a5_mmfs2", "a5_myr", "a5_bmfs2", "a17f_ths")
+newdata1 <- TFAdata[!myvars]
+no.na.data1 <- na.omit(newdata1)
+```
+
+
+pairs plot
+```{r}
+TFAdata <- TFAdata %>% mutate(diff = ss_m-press_m)
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor=1, ...)
+ {
+   usr <- par("usr"); on.exit(par(usr))
+   par(usr = c(0, 1, 0, 1))
+   r <- abs(cor(x, y))
+   txt <- format(c(r, 0.123456789), digits = digits)[1]
+   txt <- paste0(prefix, txt)
+   text(0.5, 0.5, txt, cex = cex.cor )
+ }
+pairs(cbind(no.na.data1$diff, no.na.data1$a1_a, no.na.data1$a15, no.na.data1$b1_b, no.na.data1$b5_d, no.na.data1$press_m), lower.panel= panel.cor, pch=18)
+```
+
+```{r}
+step(lm(diff ~ (a1_a + a1_b + a1_c + a2 + a15 + b1_a + b1_b + b1_c + b5_a + b5_b + b5_c + b5_d + b5_e + tfa_teacher + grade + bilingual + cscurr + absentdays + press_m), data=no.na.data1),
+direction = "backward", k=log(nrow(no.na.data1)))
+```
+
+
