@@ -1,7 +1,7 @@
 ---
-title: "Math 158 Project: Teach for America Data Assignment 3"
+title: "Math 158 Project: Assignment 3"
 author: "Sophia Hui and Allison Kirkegaard"
-date: "March 16, 2018"
+date: "March 19, 2018"
 output: pdf_document
 ---
 
@@ -20,4 +20,28 @@ options(digits=3)
 ##### Introduction
 
 Our data comes from an evaluation of Teach for America conducted by Mathematica Policy Research in 2004, which was designed as a year-long randomized controlled trial including 17 elementary schools from six regions across the United States. It comprises student pre- and posttest scores in math and reading, student survey responses, and teacher survey responses. We chose to have students be our observational units, and merged their teachers' data with their own so that our model of student test performance can include both student and teacher characteristics.
+
+Students were tested in math and reading at the beginning and end of the school year, and We are specifically interested in predicting the difference in math test scores. 
+
+pairs plot
+```{r}
+TFAdata <- TFAdata %>% mutate(diff = ss_m-press_m)
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor=1, ...)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y))
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    text(0.5, 0.5, txt, cex = cex.cor )
+}
+pairs(cbind(TFAdata$diff, TFAdata$a1_a, TFAdata$a17a_ths, TFAdata$a17b_ths, TFAdata$absentdays), lower.panel= panel.cor, pch=18)
+```
+
+```{r}
+no.na.data <- na.omit(TFAdata)
+step(lm(diff ~ (a1_a + a1_b + a1_c + a2 + a15 + a17a_ths + a17b_ths + a17c_ths + a17d_ths + a17e_ths + a17f_ths + a17g_ths + b1_a + b1_b + b1_c + b5_a + b5_b + b5_c + b5_d + b5_e + tfa_teacher + grade + bilingual + cscurr + absentdays + suspensions + suspdays + press_m), data=no.na.data),
+direction = "backward", k=log(nrow(no.na.data)))
+```
+
 
