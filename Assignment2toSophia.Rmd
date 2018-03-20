@@ -1,0 +1,140 @@
+---
+title: "Math 158 Project: Assignment 2"
+author: "Sophia Hui and Allison Kirkegaard"
+date: "February 19, 2018"
+output: pdf_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, fig.height=3, fig.width=5, fig.align = "center")
+require(dplyr)
+require(ggplot2)
+require(infer)
+require(skimr)
+require(broom)
+require(haven)
+require(readr)
+TFAdata <- read_csv("my_TFAdata.csv")
+options(digits=3)
+```
+##### Introduction
+
+Our data comes from an evaluation of Teach for America conducted by Mathematica Policy Research in 2004, which was designed as a year-long randomized controlled trial including 17 elementary schools from six regions across the United States. It comprises student pre- and posttest scores in math and reading, student survey responses, and teacher survey responses. We chose to have students be our observational units, and merged their teachers' data with their own so that our model of student test performance can include both student and teacher characteristics.
+
+##### Hypotheses
+
+We are introducing a new variable: the difference between pretest and posttest scores in math; the variable will be called 'diff'. We will be testing the linear relationship between 'diff' and the teacher's years of experience. Our explanatory variable will be the student's teacher's total years of teaching experience, and our response variable will be $Y$ = posttest score - pretest score in math. The linear regression model we will be using is $$ Y_i = \beta_0 + \beta_1 X_i + \epsilon_i.$$ Our hypothesis is:
+
+$$ H_0: \beta_1 = 0$$
+$$ H_a: \beta_1\neq 0$$
+Note that 100 observations were removed because those teachers did not provide how many years of experience they had in teaching. It is possible that those teachers were primarily first-year teachers who thought they had no experience, but since the survey instructed teachers to include the current school year in their total years of teaching experience and thus all teachers should have had at least one year, we chose to omit these missing values rather than recode them as zeros.
+
+##### Linear Regression
+
+Because our explanatory variable is discrete, it is difficult to see a linear relationship between our explanatory and response variables. However, there is no curvilinear relationship evident either, so in the interest of parsimony we will assume that the relationship is linear. 
+
+```{r, echo=FALSE}
+TFAdata <- TFAdata %>% mutate(diff = ss_m-press_m)
+
+ggplot(TFAdata, aes(x=a1_a, y=diff)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=FALSE) +
+  labs(x = "Teacher's Total Years of Teaching Exp.", y = "Diff. in Math Test Scores", title = "Diff. in Math Test Scores vs. Teacher's Years of Exp.")
+```
+
+The residuals from our linear model appear to be normally distributed. Upon first glance, their variance appears to be nonconstant (with larger residuals associated with higher predicted differences in test scores), but this actually seems to be a result of having many observations (students) with low values for the total years of their teacher's experience, which is associated with higher predicted differences in test scores in our model. Since we have so many observations at these values, there are more values at the extremes, but the density of points in the middle is also much greater. Thus we have normally distributed residuals with approximately constant variance, which satisfies the technical conditions for linear regression.
+```{r, echo=FALSE}
+test_lm <- lm(diff ~ a1_a, data=TFAdata)
+test_stdres <- broom::augment(test_lm)$.std.resid
+plot(fitted(test_lm), test_stdres, ylab="Std. Residuals", xlab="Predicted Diff. in Math Test Scores", main="Resid. of Diff. in Test Scores vs. Teacher's Exp. Model")
+abline(0,0)
+```
+
+Having determined that simple linear regression is appropriate, we can now examine our model. Our linear model is $$\hat{Y}=12.235 + -0.193X,$$ $p < 0.001$. With such a low $p$-value, we can reject $H_0$ and conclude that there exists a linear relationship between students' differences in pre- and posttest scores and their teachers' total years of teaching experience. 
+```{r}
+tidy(test_lm)
+```
+We can verify that this relationship exists by conducting an $F$-test of $\beta_1 = 0$ versus $\beta_1 \neq 0$. Finding an $F$ statistic of 11.3 and an associated $p$-value less than 0.001, we can indeed reject $H_0: \beta_1 = 0$.
+```{r}
+tidy(anova(test_lm))
+```
+
+
+Based on the residual plot above, our linear model appears to fit our data well. However, our $R^2$ value is very low. Only 0.924% of the variability of the response data is explained by our model:
+```{r}
+glance(test_lm)$r.squared
+```
+This means that while there is a linear relationship between students' differences in test scores and their teachers' years of teaching experience, there are other explanatory variables in our dataset that explain much more of the variability in the students' differences in test scores.
+
+In this data, we might be particularly interested in the case where a student's teacher is in their first year of teaching. We can construct 95% prediction and confidence intervals at this value:
+```{r, echo=FALSE}
+newtest <- data.frame(a1_a=1)
+crit_val <- qt(.975, glance(test_lm)$df.resid)
+test_pred <- augment(test_lm, newdata=newtest, type.predict = "response")
+.se.pred <- sqrt(glance(test_lm)$sigma^2 + test_pred$.se.fit)
+test_pred <- test_pred %>%
+mutate(lower_PI = .fitted - crit_val * .se.pred,
+upper_PI = .fitted + crit_val * .se.pred,
+lower_CI = .fitted - crit_val * .se.fit,
+upper_CI = .fitted + crit_val * .se.fit)
+test_pred
+```
+By constructing a 95% prediction interval, we are 95% confident that the difference in pre- and post-test math scores will be in the interval (-15.6, 39.7) for a student who has a teacher with no prior experience ($X_h$ = 1). We also constructed a 95% confidence interval, which tells us that if we were to repeatedly samples, then 95% of our confidence intervals will capture the true mean score difference for students with teachers with 1 year of experience (including the current school year). 
+
+We may also be interested in simultaneous inference. Here we construct confidence and prediction intervals for all of the observations in our dataset (purple = no adjustment, green = Working-Hotelling and Scheffe, blue = Bonferroni):
+```{r, echo=FALSE}
+
+test_gl <- broom::glance(test_lm)
+test_sig <- dplyr::pull(test_gl, sigma)
+
+# find critical value without adjustment
+crit_val <- qt(.975, glance(test_lm)$df.resid)
+# find mean and prediction intervals without adjustment
+test_pred <- broom::augment(test_lm) %>%
+  mutate(.se.pred = sqrt(test_sig^2 + .se.fit^2)) %>%
+  mutate(lower_PI = .fitted - crit_val * .se.pred,
+    upper_PI = .fitted + crit_val * .se.pred,
+    lower_CI = .fitted - crit_val * .se.fit,
+    upper_CI = .fitted + crit_val * .se.fit)
+
+# find critical values for Working-Hotelling, Scheffe, and Bonferroni procedures
+crit_WH_Sch <- sqrt(2*qf(.95, 2, glance(test_lm)$df.resid))
+crit_Bonf <- qt((1-.975)/2, glance(test_lm)$df.resid)
+
+# find mean intervals
+test_pred <- test_pred %>%
+mutate(lower_CI_WH = .fitted - crit_WH_Sch * .se.fit,
+upper_CI_WH = .fitted + crit_WH_Sch * .se.fit,
+lower_CI_Bonf = .fitted - crit_Bonf * .se.fit,
+upper_CI_Bonf = .fitted + crit_Bonf * .se.fit)
+# plot mean intervals
+ggplot(test_pred, aes(x = a1_a, y = diff)) + geom_point() +
+stat_smooth(method = "lm", se = FALSE) +
+geom_ribbon(data = test_pred, aes(ymin = lower_CI, ymax = upper_CI), alpha = .2, fill = "purple") +
+geom_ribbon(data = test_pred, aes(ymin = lower_CI_WH, ymax = upper_CI_WH), alpha = .2, fill = "green") +
+geom_ribbon(data = test_pred, aes(ymin = lower_CI_Bonf, ymax = upper_CI_Bonf), alpha = .2, fill = "blue") +
+labs(x = "Teacher's Total Years of Teaching Exp.", y = "Diff. in Math Test Scores", title = "Simultaneous Intervals for Mean Responses")
+
+# find prediction intervals
+test_pred <- test_pred %>%
+mutate(lower_PI_Sch = .fitted - crit_WH_Sch * .se.pred,
+upper_PI_Sch = .fitted + crit_WH_Sch * .se.pred,
+lower_PI_Bonf = .fitted - crit_Bonf * .se.pred,
+upper_PI_Bonf = .fitted + crit_Bonf * .se.pred)
+# plot prediction intervals
+ggplot(test_pred, aes(x = a1_a, y = diff)) + geom_point() +
+stat_smooth(method = "lm", se = FALSE) +
+geom_ribbon(data = test_pred, aes(ymin = lower_PI, ymax = upper_PI), alpha = .2, fill = "purple") +
+geom_ribbon(data = test_pred, aes(ymin = lower_PI_Sch, ymax = upper_PI_Sch), alpha = .2, fill = "green") +
+geom_ribbon(data = test_pred, aes(ymin = lower_PI_Bonf, ymax = upper_PI_Bonf), alpha = .2, fill = "blue") +
+labs(x = "Teacher's Total Years of Teaching Exp.", y = "Diff. in Math Test Scores", title = "Simultaneous Intervals for New Predictions")
+
+no.na.data <- na.omit(TFAdata)
+step(lm(diff ~ (a1_a + a1_b + a1_c + a2 + a15 + a17a_ths + a17b_ths + a17c_ths + a17d_ths + a17e_ths + a17f_ths + a17g_ths + b1_a + b1_b + b1_c + b5_a + b5_b + b5_c + b5_d + b5_e + tfa_teacher + grade + bilingual + cscurr + absentdays + suspensions + suspdays + press_m), data=no.na.data),
+direction = "backward", k=log(nrow(no.na.data)))
+
+```
+It is important to adjust for multiple comparisons because with over 1000 observations in our dataset, if we created intervals for each of them we could hardly expect all of them to cover the true values with probability $(1-\alpha)$. We need to adjust the intervals so that $(1-\alpha)$ is the probability that the total range of observations are contained in the appropriate confidence or prediction intervals. Otherwise, random chance might lead us to find a $b_0$ and $b_1$ such that the mean responses were only correct for a particular range of $x$ values.
+
+##### Conclusion
+Initially, we were concerned by the scatterplot, because our explanatory variable only had discrete values, which yielded in a plot that did not look linear. However, we were able to reject our null hypothesis and conclude that there was a negative relationship between the total number of years of teaching experience and the difference in math pre- and post-test scores. This surprised us, because typically, more experienced teachers have better success in the classroom. We think this unexpected negative correlation may be a result of teachers' TFA status acting as a confounding variable, since almost all TFA teachers have one or two years of teaching experience and most non-TFA teachers have much more teaching experience. It could be that TFA teachers are more successful in raising student test scores for reasons other than their years of teaching experience, such as their educational backgrounds or the TFA training program. Thus in future assignments, we will want to add other explanatory variables to our model, and potentially interactions between TFA status and other characteristics.
